@@ -7,6 +7,7 @@ import queryString from "query-string";
 import { useDispatch, Provider } from "react-redux";
 import { setEndpoint } from "./modules/actions";
 import { store } from "./modules/store";
+import axios from "axios";
 
 type Tokens = {
   accessToken: string;
@@ -14,18 +15,51 @@ type Tokens = {
 
 function MyComponent() {
   const dispatch = useDispatch();
+  const headers = {
+    "Content-Type": "application/json",
+  };
 
   useEffect(() => {
-    const ENDPOINT = "http://localhost:8000";
+    const ENDPOINT = process.env.REACT_APP_ENDPOINT;
     dispatch(setEndpoint(ENDPOINT));
   }, [dispatch]);
 
   const location = useLocation();
-  const queryParams = queryString.parse(location.search);
-  const tokens: Tokens = require("./data/tokens.json");
-  const needAuthorize = !tokens["accessToken"] && !queryParams["code"];
 
-  return <>{needAuthorize ? <Authorize /> : <Main />}</>;
+  const renderComponent = () => {
+    const tokens: Tokens = require("./data/tokens.json");
+    const queryParams = queryString.parse(location.search);
+
+    if (!tokens["accessToken"] && !queryParams["code"]) {
+      return <Authorize />;
+    } else if (!tokens["accessToken"]) {
+      const authCode = queryParams["code"];
+
+      const params = {
+        code: authCode,
+      };
+
+      const fetchTokenData = async () => {
+        const ENDPOINT = process.env.REACT_APP_ENDPOINT;
+        const response = await axios.get(`${ENDPOINT}/get_token`, {
+          params: params,
+          headers: headers,
+        });
+
+        const data = response.data;
+        const accessToken = data["body"]["access_token"];
+        const refreshToken = data["body"]["refresh_token"];
+      };
+
+      fetchTokenData();
+
+      return <div>{authCode}</div>;
+    } else {
+      return <Main />;
+    }
+  };
+
+  return <>{renderComponent()}</>;
 }
 
 function App() {
