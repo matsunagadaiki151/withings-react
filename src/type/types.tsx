@@ -9,7 +9,11 @@ type Tokens = {
 };
 
 type AuthParams = {
-  code: string | null;
+  code: string;
 };
 
-export type { Headers, Tokens, AuthParams };
+type RefreshParams = {
+  refresh_token: string;
+};
+
+export type { Headers, Tokens, AuthParams, RefreshParams };

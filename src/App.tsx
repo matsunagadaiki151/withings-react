@@ -2,20 +2,25 @@ import React, { useEffect, useState } from "react";
 import "./App.css";
 import Authorize from "./components/Authorize";
 import Main from "./components/Main";
-import { BrowserRouter as Router, useLocation } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  NavigateFunction,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import queryString from "query-string";
 import { useDispatch, Provider } from "react-redux";
 import { setEndpoint } from "./modules/actions";
 import { store } from "./modules/store";
 import type { Location } from "react-router-dom";
-import { Headers, Tokens } from "./type/types";
+import { Headers } from "./type/types";
 import {
+  fetchRefreshTokenData,
   fetchTokenData,
   loadAuthCodeFromQueryParams,
   loadTokens,
 } from "./processor/tokenProcessor";
 import dayjs from "dayjs";
-import axios from "axios";
 
 // 定数の定義
 const headers: Headers = {
@@ -23,9 +28,11 @@ const headers: Headers = {
 };
 const DB_ENDPOINT = process.env.REACT_APP_DB_ENDPOINT;
 
-const renderComponent = async (location: Location) => {
+const RenderComponent = async (
+  location: Location,
+  navigate: NavigateFunction
+) => {
   const tokens = await loadTokens(DB_ENDPOINT, headers);
-  const newTokens = { ...tokens };
   // クエリパラメータを取得する。
   const queryParams = queryString.parse(location.search);
 
@@ -33,57 +40,29 @@ const renderComponent = async (location: Location) => {
     return <Authorize />;
   } else if (!tokens["accessToken"]) {
     const authCode = loadAuthCodeFromQueryParams(queryParams);
-    const params = {
-      code: authCode,
-    };
-    await fetchTokenData(newTokens, params, DB_ENDPOINT, headers);
+    if (typeof authCode === "string") {
+      const params = {
+        code: authCode,
+      };
+      await fetchTokenData(params, headers);
+    }
+
+    navigate("/", {});
     return <div>アクセストークンを更新しました。</div>;
   } else {
     const limitTime = tokens["limitTime"];
     if (dayjs(limitTime) <= dayjs()) {
-      const refreshTokenData = async () => {
-        const ENDPOINT = process.env.REACT_APP_ENDPOINT;
-
-        // const authCode = loadAuthCodeFromQueryParams(queryParams);
-        const refreshToken = tokens["refreshToken"];
-        const params = {
-          refresh_token: refreshToken,
-        };
-        const response = await axios.get(`${ENDPOINT}/refresh_token`, {
-          params: params,
-          headers: headers,
-        });
-
-        const data = response.data;
-        if (data["status"] !== 601) {
-          newTokens["accessToken"] = data["body"]["access_token"];
-          newTokens["refreshToken"] = data["body"]["refresh_token"];
-          const limitTime = dayjs().add(
-            parseInt(data["body"]["expires_in"]),
-            "second"
-          );
-          const limitTimeStr = limitTime.format("YYYY-MM-DD HH:mm:ss");
-          if (limitTimeStr !== "Invalid Date") {
-            newTokens["limitTime"] = limitTimeStr;
-          }
-          const postTokens = async (tokens: Tokens) => {
-            const DB_ENDPOINT = process.env.REACT_APP_DB_ENDPOINT;
-            await axios.post(`${DB_ENDPOINT}/tokens`, {
-              accessToken: tokens.accessToken,
-              refreshToken: tokens.refreshToken,
-              limitTime: tokens.limitTime,
-            });
-          };
-          postTokens(newTokens);
-        }
+      const params = {
+        refresh_token: tokens["refreshToken"],
       };
-      refreshTokenData();
+      fetchRefreshTokenData(params, headers);
     }
     return <Main />;
   }
 };
 
 function MyComponent() {
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const [page, setPage] = useState(<>ロード中です。</>);
 
@@ -96,7 +75,7 @@ function MyComponent() {
 
   useEffect(() => {
     const render = async () => {
-      const nowPage = await renderComponent(location);
+      const nowPage = await RenderComponent(location, navigate);
       setPage(nowPage);
     };
     render();
