@@ -16,4 +16,21 @@ type RefreshParams = {
   refresh_token: string;
 };
 
-export type { Headers, Tokens, AuthParams, RefreshParams };
+type EnvState = {
+  endpoint: string;
+};
+
+type WeightsState = {
+  weights: {
+    [name: string]: string;
+  };
+};
+
+export type {
+  Headers,
+  Tokens,
+  AuthParams,
+  RefreshParams,
+  EnvState,
+  WeightsState,
+};

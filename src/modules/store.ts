@@ -1,9 +1,10 @@
 import { configureStore } from "@reduxjs/toolkit";
-import envReducer from "./actions";
+import { envReducer, weightsReducer } from "./actions";
 
 export const store = configureStore({
   reducer: {
     env: envReducer,
+    weights: weightsReducer,
   },
 });
 

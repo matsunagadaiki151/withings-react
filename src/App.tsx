@@ -10,27 +10,31 @@ import {
 } from "react-router-dom";
 import queryString from "query-string";
 import { useDispatch, Provider } from "react-redux";
-import { setEndpoint } from "./modules/actions";
+import { setEndpoint, setWeights } from "./modules/actions";
 import { store } from "./modules/store";
 import type { Location } from "react-router-dom";
 import { Headers } from "./type/types";
 import {
   fetchRefreshTokenData,
   fetchTokenData,
+  fetchWeightsData,
   loadAuthCodeFromQueryParams,
   loadTokens,
 } from "./processor/tokenProcessor";
 import dayjs from "dayjs";
+import { AnyAction, Dispatch } from "@reduxjs/toolkit";
 
 // 定数の定義
 const headers: Headers = {
   "Content-Type": "application/json",
 };
+
 const DB_ENDPOINT = process.env.REACT_APP_DB_ENDPOINT;
 
 const RenderComponent = async (
   location: Location,
-  navigate: NavigateFunction
+  navigate: NavigateFunction,
+  dispatch: Dispatch<AnyAction>
 ) => {
   const tokens = await loadTokens(DB_ENDPOINT, headers);
   // クエリパラメータを取得する。
@@ -55,8 +59,12 @@ const RenderComponent = async (
       const params = {
         refresh_token: tokens["refreshToken"],
       };
-      fetchRefreshTokenData(params, headers);
+      await fetchRefreshTokenData(params, headers);
+      navigate("/", {});
     }
+    const measures = await fetchWeightsData(tokens["accessToken"], headers);
+    const weightsData = measures["data"];
+    dispatch(setWeights(weightsData));
     return <Main />;
   }
 };
@@ -75,11 +83,11 @@ function MyComponent() {
 
   useEffect(() => {
     const render = async () => {
-      const nowPage = await RenderComponent(location, navigate);
+      const nowPage = await RenderComponent(location, navigate, dispatch);
       setPage(nowPage);
     };
     render();
-  }, [location]);
+  }, [location, navigate, dispatch]);
 
   return <>{page}</>;
 }
